@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Job Agent — Dashboard</title>
+<meta name="description" content="Local dashboard for jobs.db — jobs, match scores and referral contacts." />
+<style>
+  :root{
+    --bg:#f6f7f9; --bg-soft:#ffffff; --bg-muted:#eef1f5;
+    --text:#141a22; --text-muted:#5d6b7d; --text-faint:#8a97a8;
+    --border:#e2e8f0; --border-strong:#cbd5e1;
+    --primary:#4f46e5; --primary-hover:#4338ca; --primary-soft:#eef2ff;
+    --success:#059669; --success-soft:#ecfdf5;
+    --warn:#d97706; --warn-soft:#fffbeb;
+    --danger:#dc2626; --danger-soft:#fef2f2;
+    --card-shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08);
+    --card-shadow-hover:0 8px 24px rgba(16,24,40,.12);
+    --radius:14px; --radius-sm:9px;
+    --font:ui-sans-system,-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  [data-theme="dark"]{
+    --bg:#0b0f16; --bg-soft:#121826; --bg-muted:#1a2333;
+    --text:#e8edf4; --text-muted:#9aa8bd; --text-faint:#6b7a90;
+    --border:#1f2a3d; --border-strong:#2e3d55;
+    --primary:#818cf8; --primary-hover:#a5b4fc; --primary-soft:#1c2250;
+    --success:#34d399; --success-soft:#0d2b23;
+    --warn:#fbbf24; --warn-soft:#2e240e;
+    --danger:#f87171; --danger-soft:#2e1414;
+    --card-shadow:0 1px 2px rgba(0,0,0,.4);
+    --card-shadow-hover:0 10px 30px rgba(0,0,0,.5);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;font-family:var(--font);background:var(--bg);color:var(--text);line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--primary)}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 18px 64px}
+
+  /* Header */
+  header.top{position:sticky;top:0;z-index:30;backdrop-filter:blur(12px);background:color-mix(in srgb,var(--bg) 86%,transparent);border-bottom:1px solid var(--border)}
+  .top-inner{max-width:1180px;margin:0 auto;padding:14px 18px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .brand{display:flex;align-items:center;gap:12px;margin-right:auto}
+  .logo{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,#4f46e5,#06b6d4);color:#fff;font-weight:800;font-size:19px;flex-shrink:0}
+  .brand h1{font-size:17px;margin:0;line-height:1.2;letter-spacing:-.01em}
+  .brand p{margin:0;font-size:12.5px;color:var(--text-muted)}
+  .pill{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;padding:6px 11px;border-radius:999px;border:1px solid var(--border);background:var(--bg-soft);color:var(--text-muted);white-space:nowrap}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--text-faint)}
+  .dot.ok{background:#22c55e;box-shadow:0 0 0 4px rgba(34,197,94,.18)}
+  .dot.err{background:var(--danger)}
+  .btn{appearance:none;border:1px solid var(--border);background:var(--bg-soft);color:var(--text);font:600 13.5px/1 var(--font);padding:10px 14px;border-radius:10px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;transition:.15s}
+  .btn:hover{border-color:var(--border-strong);transform:translateY(-1px)}
+  .btn.primary{background:var(--primary);border-color:var(--primary);color:#fff}
+  .btn.primary:hover{background:var(--primary-hover)}
+  .btn.icon{padding:10px}
+  input[type=file]{display:none}
+
+  /* Hero */
+  .hero{padding:28px 0 6px;display:flex;gap:18px;align-items:end;justify-content:space-between;flex-wrap:wrap}
+  .hero h2{margin:0;font-size:clamp(24px,3.4vw,34px);letter-spacing:-.03em;line-height:1.1}
+  .hero p{margin:8px 0 0;color:var(--text-muted);max-width:62ch;font-size:14.5px}
+  kbd{font-family:var(--mono);font-size:12px;background:var(--bg-muted);border:1px solid var(--border);border-bottom-width:2px;border-radius:6px;padding:1px 6px}
+
+  /* Stats */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:20px 0}
+  .stat{background:var(--bg-soft);border:1px solid var(--border);border-radius:var(--radius);padding:15px 16px;box-shadow:var(--card-shadow)}
+  .stat span{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted)}
+  .stat strong{display:block;font-size:26px;letter-spacing:-.03em;margin-top:4px}
+  .stat small{color:var(--text-muted);font-size:12.5px}
+
+  /* Toolbar */
+  .toolbar{position:sticky;top:68px;z-index:20;background:var(--bg-soft);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--card-shadow);padding:12px;display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr 1fr auto;gap:10px;margin:14px 0 18px}
+  .field{display:flex;flex-direction:column;gap:5px;min-width:0}
+  .field label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted)}
+  .field input,.field select{background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:9px;padding:10px 11px;font:500 13.5px var(--font);width:100%;outline:none}
+  .field input:focus,.field select:focus{border-color:var(--primary);box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 20%,transparent)}
+  .toolbar-actions{display:flex;gap:8px;align-items:end}
+
+  /* Meta row */
+  .meta{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:4px 2px 12px;color:var(--text-muted);font-size:13px}
+  .seg{display:inline-flex;background:var(--bg-soft);border:1px solid var(--border);border-radius:10px;padding:3px;gap:3px}
+  .seg button{border:0;background:transparent;color:var(--text-muted);font:700 13px var(--font);padding:7px 12px;border-radius:7px;cursor:pointer}
+  .seg button[aria-pressed="true"]{background:var(--bg-muted);color:var(--text)}
+
+  /* Grid */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
+  .grid.list{grid-template-columns:1fr}
+  .card{background:var(--bg-soft);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--card-shadow);padding:18px;display:flex;flex-direction:column;gap:12px;transition:.18s}
+  .card:hover{box-shadow:var(--card-shadow-hover);transform:translateY(-2px);border-color:var(--border-strong)}
+  .card-top{display:flex;gap:10px;align-items:flex-start}
+  .avatar{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font-weight:800;color:#fff;flex-shrink:0;font-size:18px}
+  .card-top h3{margin:0;font-size:16px;line-height:1.3;letter-spacing:-.01em}
+  .card-top h3 span{color:var(--text-muted);font-weight:500}
+  .sub{font-size:13px;color:var(--text-muted);display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:4px}
+  .score{margin-left:auto;flex-shrink:0;text-align:center;background:var(--bg-muted);border:1px solid var(--border);border-radius:11px;padding:7px 10px;min-width:72px}
+  .score b{display:block;font-size:18px;letter-spacing:-.02em}
+  .score i{font-style:normal;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted)}
+  .score.high{background:var(--success-soft);border-color:color-mix(in srgb,var(--success) 35%,transparent)}
+  .score.high b{color:var(--success)}
+  .score.mid{background:var(--warn-soft)}
+  .score.mid b{color:var(--warn)}
+  .score.low b{color:var(--text-muted)}
+  .tags{display:flex;flex-wrap:wrap;gap:6px}
+  .tag{font-size:12px;font-weight:600;padding:4px 9px;border-radius:999px;background:var(--bg-muted);border:1px solid var(--border);color:var(--text-muted);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tag.gap{background:var(--danger-soft);border-color:color-mix(in srgb,var(--danger) 25%,transparent);color:var(--danger)}
+  .tag.req{background:var(--primary-soft);border-color:color-mix(in srgb,var(--primary) 25%,transparent);color:var(--primary)}
+  .tag.status{background:var(--success-soft);color:var(--success);border-color:transparent}
+  .desc{font-size:13.5px;color:var(--text-muted);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .card.expanded .desc{-webkit-line-clamp:unset}
+  .reasons{font-size:13px;background:var(--bg);border:1px dashed var(--border-strong);border-radius:10px;padding:10px 12px;color:var(--text-muted)}
+  .reasons ul{margin:6px 0 0;padding-left:18px}
+  .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:auto;padding-top:4px}
+  .link-btn{text-decoration:none;font:700 13px var(--font);padding:9px 13px;border-radius:9px;background:var(--primary);color:#fff;display:inline-flex;gap:6px;align-items:center}
+  .ghost-btn{font:700 13px var(--font);padding:9px 13px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer}
+  /* Contacts */
+  details.contacts{border-top:1px solid var(--border);padding-top:10px}
+  details.contacts summary{cursor:pointer;font:700 13px var(--font);color:var(--text);list-style:none;display:flex;align-items:center;gap:8px}
+  details.contacts summary::-webkit-details-marker{display:none}
+  details.contacts summary .count{background:var(--primary-soft);color:var(--primary);border-radius:999px;font-size:12px;padding:1px 9px}
+  .contact{border:1px solid var(--border);border-radius:10px;padding:11px 12px;margin-top:9px;background:var(--bg);font-size:13px}
+  .contact strong{font-size:13.5px}
+  .contact .role{color:var(--text-muted);font-size:12.5px}
+  .contact p{margin:7px 0 0;color:var(--text-muted)}
+  .contact .msg{white-space:pre-wrap;background:var(--bg-soft);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-top:8px;font-size:12.8px}
+  .badge{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:3px 8px;border-radius:999px;background:var(--bg-muted);border:1px solid var(--border);color:var(--text-muted)}
+
+  /* Empty / error */
+  .panel{background:var(--bg-soft);border:1px dashed var(--border-strong);border-radius:18px;padding:44px 28px;text-align:center;box-shadow:var(--card-shadow)}
+  .panel .art{font-size:44px}
+  .panel h3{margin:12px 0 6px;font-size:20px;letter-spacing:-.02em}
+  .panel p{color:var(--text-muted);max-width:60ch;margin:0 auto 16px;font-size:14px}
+  .panel ol{text-align:left;max-width:560px;margin:0 auto 18px;color:var(--text-muted);font-size:13.5px}
+  .panel code{font-family:var(--mono);font-size:12.5px;background:var(--bg-muted);padding:2px 7px;border-radius:6px;border:1px solid var(--border)}
+  .skeleton{border-radius:var(--radius);border:1px solid var(--border);background:linear-gradient(100deg,var(--bg-soft) 40%,var(--bg-muted) 50%,var(--bg-soft) 60%);background-size:200% 100%;animation:sh 1.2s infinite;min-height:190px}
+  @keyframes sh{to{background-position:-200% 0}}
+
+  dialog{border:1px solid var(--border);background:var(--bg-soft);color:var(--text);border-radius:16px;max-width:720px;width:calc(100vw - 32px);padding:0;box-shadow:var(--card-shadow-hover)}
+  dialog::backdrop{background:rgba(0,0,0,.5);backdrop-filter:blur(3px)}
+  .modal-head{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:start}
+  .modal-body{padding:18px 22px;max-height:70vh;overflow:auto;font-size:14px}
+  .modal-body h4{margin:18px 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)}
+  .kv{display:grid;grid-template-columns:150px 1fr;gap:6px 12px;font-size:13.5px}
+  .kv dt{color:var(--text-muted)} .kv dd{margin:0;word-break:break-word}
+  footer{margin-top:26px;color:var(--text-faint);font-size:12.5px;text-align:center}
+
+  /* Drop overlay */
+  #drop{position:fixed;inset:0;display:none;place-items:center;background:rgba(79,70,229,.14);backdrop-filter:blur(2px);z-index:99}
+  #drop.on{display:grid}
+  #drop div{border:2px dashed var(--primary);border-radius:18px;background:var(--bg-soft);padding:34px 44px;font-weight:700}
+
+  @media (max-width:920px){
+    .stats{grid-template-columns:repeat(2,1fr)}
+    .toolbar{grid-template-columns:1fr 1fr;position:static}
+    .toolbar .field.search{grid-column:1/-1}
+    .toolbar-actions{grid-column:1/-1;justify-content:stretch}
+    .toolbar-actions .btn{flex:1;justify-content:center}
+  }
+  @media (max-width:540px){
+    .grid{grid-template-columns:1fr}
+    .top-inner{padding:12px}
+    .hero{padding-top:20px}
+    .kv{grid-template-columns:1fr}
+    .stat strong{font-size:22px}
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){color-scheme:dark}
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-inner">
+    <div class="brand">
+      <div class="logo">J</div>
+      <div>
+        <h1>Job Agent Dashboard</h1>
+        <p>Reads <b>jobs.db</b> in this folder &middot; 100% local</p>
+      </div>
+    </div>
+    <span class="pill" id="dbStatus"><span class="dot" id="dbDot"></span><span id="dbText">Connecting…</span></span>
+    <button class="btn" id="refreshBtn" title="Re-read jobs.db">↻ Refresh</button>
+    <button class="btn" id="autoBtn" aria-pressed="true" title="Auto re-read jobs.db every 30s while the agent is running">Auto ↻</button>
+    <label class="btn" for="fileInput" title="Open a .db file manually (needed for file://)">📂 Open .db</label>
+    <input type="file" id="fileInput" accept=".db,.sqlite,.sqlite3" />
+    <button class="btn icon" id="themeBtn" title="Toggle theme">◐</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <section class="hero">
+    <div>
+      <h2 id="headline">Your matched jobs, ranked.</h2>
+      <p>Drop <kbd>jobs.db</kbd> next to this file and serve the folder with <kbd>python3 -m http.server</kbd>, then open this page. When your agent writes rows into <kbd>jobs</kbd> / <kbd>contacts</kbd>, they appear here automatically — no code changes.</p>
+    </div>
+  </section>
+
+  <section class="stats" id="stats" aria-live="polite">
+    <div class="stat"><span>Total jobs</span><strong id="sJobs">—</strong><small id="sJobsSub">waiting for data</small></div>
+    <div class="stat"><span>Avg match</span><strong id="sAvg">—</strong><small id="sAvgSub">score 0–100</small></div>
+    <div class="stat"><span>High matches ≥80</span><strong id="sHigh">—</strong><small>worth applying first</small></div>
+    <div class="stat"><span>Referral contacts</span><strong id="sContacts">—</strong><small id="sContactsSub">across all jobs</small></div>
+  </section>
+
+  <section class="toolbar" aria-label="Filters">
+    <div class="field search">
+      <label for="q">Search</label>
+      <input id="q" type="search" placeholder="company, title, location, skill…" autocomplete="off" />
+    </div>
+    <div class="field">
+      <label for="fSession">Session</label>
+      <select id="fSession"><option value="">All sessions</option></select>
+    </div>
+    <div class="field">
+      <label for="fSource">Source</label>
+      <select id="fSource"><option value="">All sources</option></select>
+    </div>
+    <div class="field">
+      <label for="fStatus">Status</label>
+      <select id="fStatus"><option value="">All statuses</option></select>
+    </div>
+    <div class="field">
+      <label for="fSort">Sort by</label>
+      <select id="fSort">
+        <option value="score">Match score ↓</option>
+        <option value="recent">Recently discovered ↓</option>
+        <option value="company">Company A–Z</option>
+      </select>
+    </div>
+    <div class="toolbar-actions">
+      <button class="btn" id="clearBtn">Clear</button>
+    </div>
+  </section>
+
+  <div class="meta">
+    <span id="resultCount">Loading database…</span>
+    <div class="seg" role="group" aria-label="View">
+      <button id="gridBtn" aria-pressed="true">▦ Grid</button>
+      <button id="listBtn" aria-pressed="false">☰ List</button>
+    </div>
+  </div>
+
+  <main id="content">
+    <div class="grid" id="grid" style="display:none"></div>
+    <div id="state"></div>
+  </main>
+
+  <footer>
+    Local-only viewer &middot; uses <code>sql.js</code> (WASM SQLite) to read <code>jobs.db</code> via <code>fetch</code> &middot; drag &amp; drop a <code>.db</code> file anywhere as fallback &middot; nothing is uploaded.
+  </footer>
+</div>
+
+<div id="drop"><div>Drop jobs.db to preview →</div></div>
+
+<dialog id="modal">
+  <div class="modal-head">
+    <div style="flex:1"><h3 id="mTitle" style="margin:0"></h3><div class="sub" id="mSub"></div></div>
+    <button class="btn icon" id="mClose">✕</button>
+  </div>
+  <div class="modal-body" id="mBody"></div>
+</dialog>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
+<script>
+(function(){
+  "use strict";
+  const $ = s => document.querySelector(s);
+  const grid = $("#grid"), state = $("#state"), resultCount = $("#resultCount");
+  const dbDot = $("#dbDot"), dbText = $("#dbText");
+  let SQL = null, db = null, allJobs = [], contactsByJob = {}, filter = {q:"", session:"", source:"", status:"", sort:"score"};
+  let autoTimer = null;
+
+  /* ---------- theme ---------- */
+  const root = document.documentElement;
+  const saved = localStorage.getItem("ja-theme");
+  if(saved) root.dataset.theme = saved;
+  else root.dataset.theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  $("#themeBtn").onclick = () => {
+    root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark";
+    localStorage.setItem("ja-theme", root.dataset.theme);
+  };
+
+  /* ---------- helpers ---------- */
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const normScore = v => { let n = parseFloat(v); if(isNaN(n)) return null; if(n>0 && n<=1) n*=100; return Math.max(0,Math.min(100,n)); };
+  const scoreClass = n => n==null ? "low" : n>=80 ? "high" : n>=60 ? "mid" : "low";
+  function toList(v){
+    if(v==null || v==="") return [];
+    if(Array.isArray(v)) return v.map(String);
+    const s = String(v).trim();
+    if(!s) return [];
+    try{ const j = JSON.parse(s); if(Array.isArray(j)) return j.map(String); if(typeof j==="string") return [j]; }catch(e){}
+    return s.split(/\n|;|\|/).flatMap(p=>p.split(",")).map(p=>p.trim()).filter(Boolean).slice(0,20);
+  }
+  function colorFor(name){
+    let h=0; for(const c of String(name||"?")) h=(h*31+c.charCodeAt(0))>>>0;
+    return `hsl(${h%360} 55% 45%)`;
+  }
+  function initialOf(company){ return (company||"?").trim().charAt(0).toUpperCase(); }
+  /* One agent run = one session. Prefer the stamped session_id; fall back to
+     the evaluated_at minute so unstamped rows still group sensibly. */
+  function sessionOf(j){
+    if(j.session_id && String(j.session_id).trim()) return String(j.session_id).trim();
+    if(j._date) return String(j._date).slice(0,16).replace("T"," ");
+    return "Unknown session";
+  }
+  function setStatus(ok, msg){ dbDot.className = "dot"+(ok==null?"":ok?" ok":" err"); dbText.textContent = msg; }
+
+  /* ---------- DB load ---------- */
+  async function initSql(){
+    if(SQL) return SQL;
+    SQL = await initSqlJs({ locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${f}` });
+    return SQL;
+  }
+  function rowsOf(db, sql){
+    const res = db.exec(sql); if(!res.length) return [];
+    const {columns, values} = res[0];
+    return values.map(r => Object.fromEntries(r.map((v,i)=>[columns[i],v])));
+  }
+  function parseJsonArray(v){
+    if(v==null || v==="") return [];
+    if(Array.isArray(v)) return v;
+    try{ const j = JSON.parse(String(v)); return Array.isArray(j) ? j : []; }catch(e){ return []; }
+  }
+  /* Normalize a jobs row: supports the current schema
+     (score, job_url, matching_reasons, potential_gaps, evaluated_at,
+      recommendation, contacts_json, messages_json) as well as the
+     legacy one (match_score, url, score_reasons, skill_gaps,
+     date_discovered, application_status, requirements). */
+  function normalizeJob(r){
+    const j = Object.assign({}, r);
+    j._url = r.job_url || r.url || "";
+    j._score = (r.score ?? r.match_score ?? null);
+    j._reasons = r.matching_reasons ?? r.score_reasons ?? null;
+    j._gaps = r.potential_gaps ?? r.skill_gaps ?? null;
+    j._reqs = r.requirements ?? null;
+    j._date = r.evaluated_at ?? r.date_discovered ?? null;
+    j._status = r.recommendation ?? r.application_status ?? "";
+    j._research = r.referral_research_status || "";
+    const embedded = parseJsonArray(r.contacts_json);
+    const messages = parseJsonArray(r.messages_json);
+    const msgByName = {};
+    for(const m of messages){ if(m && m.contact) msgByName[String(m.contact).toLowerCase()] = m.message || ""; }
+    j._embeddedContacts = embedded.map(c => ({
+      job_id: r.id,
+      name: c.name || "",
+      current_title: c.title || "",
+      company: c.company || "",
+      department: c.location || "",
+      profile_url: c.profile_url || "",
+      priority_rank: c.priority ?? "—",
+      technical_background: Array.isArray(c.technical_background) ? c.technical_background.join(", ") : (c.technical_background || ""),
+      referral_potential_reason: [c.reason || "", c.referral_potential ? `Referral potential: ${c.referral_potential}${c.confidence ? ` (${c.confidence} confidence)` : ""}` : ""].filter(Boolean).join(" "),
+      generated_message: msgByName[String(c.name || "").toLowerCase()] || "",
+      referral_status: c.referral_potential || ""
+    }));
+    return j;
+  }
+  async function loadFromUrl(opts){
+    const silent = !!(opts && opts.silent);
+    if(!silent){ setStatus(null, "Loading jobs.db…"); renderSkeleton(); }
+    try{
+      await initSql();
+      const url = "jobs.db?t=" + Date.now(); // cache-bust so new rows appear on refresh
+      const r = await fetch(url);
+      if(!r.ok) throw new Error("HTTP "+r.status+" — serve via http:// (e.g. python3 -m http.server), not file://");
+      const buf = new Uint8Array(await r.arrayBuffer());
+      if(!buf.length) throw new Error("jobs.db is empty (0 bytes)");
+      openDb(buf, "jobs.db");
+      startAuto(); // (re)arm auto-refresh once we know loading works
+    }catch(err){
+      if(silent){ setStatus(false, "Auto-refresh failed — will retry"); }
+      else showDbError(err);
+    }
+  }
+  function startAuto(){
+    stopAuto();
+    if($("#autoBtn").getAttribute("aria-pressed") !== "true") return;
+    autoTimer = setInterval(()=>loadFromUrl({silent:true}), 30000);
+  }
+  function stopAuto(){ if(autoTimer){ clearInterval(autoTimer); autoTimer = null; } }
+  function openDb(bytes, name){
+    try{
+      if(db) db.close();
+      db = new SQL.Database(bytes);
+      // Plain SELECT * (no ORDER BY): column names differ across schema
+      // versions, so sorting is done in JS on normalized fields.
+      const rows = rowsOf(db, "SELECT * FROM jobs");
+      let contacts = [];
+      try{ contacts = rowsOf(db, "SELECT * FROM contacts"); }catch(e){}
+      ingest(rows, contacts, name);
+    }catch(err){ showDbError(err); }
+  }
+  function ingest(rows, contacts, name){
+    allJobs = rows.map(normalizeJob);
+    contactsByJob = {};
+    const addContact = c => { const k = c.job_id; (contactsByJob[k] = contactsByJob[k] || []).push(c); };
+    for(const j of allJobs) for(const c of j._embeddedContacts) addContact(c); // contacts_json
+    contacts
+      .slice()
+      .sort((a,b) => ((a.priority_rank ?? 99) - (b.priority_rank ?? 99)) || ((a.id ?? 0) - (b.id ?? 0)))
+      .forEach(addContact); // contacts table, if populated
+    const totalC = Object.values(contactsByJob).flat().length;
+    setStatus(true, `${name} · ${allJobs.length} job${allJobs.length===1?"":"s"} · ${totalC} contact${totalC===1?"":"s"}`);
+    buildFilters(); render();
+  }
+  function renderSkeleton(){
+    grid.style.display="none";
+    state.innerHTML = `<div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(330px,1fr))"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div>`;
+  }
+  function showDbError(err){
+    setStatus(false, "DB not loaded");
+    grid.style.display="none";
+    const isFile = location.protocol === "file:";
+    state.innerHTML = `
+      <div class="panel"><div class="art">🗂️</div>
+        <h3>Couldn't load <code>jobs.db</code> yet</h3>
+        <p>${esc(err.message || err)}. This is expected while the table is empty or the page is opened directly. No data was added or modified.</p>
+        <ol>
+          ${isFile ? `<li>Browsers block <code>fetch</code> on <code>file://</code>. Serve this folder: <code>python3 -m http.server 8000</code> then open <code>http://localhost:8000/</code>.</li>` : ``}
+          <li>Keep this file next to <code>jobs.db</code>, then press <b>Refresh</b> after your agent inserts rows.</li>
+          <li>Or drag &amp; drop a <code>.db</code> file anywhere on this page, or use <b>Open .db</b>.</li>
+        </ol>
+        <button class="btn primary" onclick="document.getElementById('fileInput').click()">📂 Choose .db file</button>
+        <button class="btn" onclick="location.reload()">↻ Retry</button>
+      </div>`;
+    updateStats([], []);
+  }
+
+  /* ---------- filters / render ---------- */
+  function uniq(vals){ return [...new Set(vals.filter(v=>v!=null && String(v).trim()!==""))].sort((a,b)=>String(a).localeCompare(String(b))); }
+  function buildFilters(){
+    const sSel = $("#fSource"), stSel = $("#fStatus"), seSel = $("#fSession");
+    const curS = filter.source, curSt = filter.status, curSe = filter.session;
+    sSel.innerHTML = `<option value="">All sources</option>` + uniq(allJobs.map(j=>j.source)).map(s=>`<option>${esc(s)}</option>`).join("");
+    stSel.innerHTML = `<option value="">All statuses</option>` + uniq(allJobs.map(j=>j._status)).map(s=>`<option>${esc(s)}</option>`).join("");
+    // Sessions, newest first, with per-session job counts
+    const counts = {};
+    for(const j of allJobs){ const s = sessionOf(j); counts[s] = (counts[s]||0)+1; }
+    const sessions = Object.keys(counts).sort((a,b)=>b.localeCompare(a));
+    seSel.innerHTML = `<option value="">All sessions (${allJobs.length})</option>` +
+      sessions.map(s=>`<option value="${esc(s)}">${esc(s)} · ${counts[s]} job${counts[s]===1?"":"s"}</option>`).join("");
+    sSel.value = curS; stSel.value = curSt;
+    seSel.value = sessions.includes(curSe) ? curSe : ""; // drop stale selection
+    filter.session = seSel.value;
+  }
+  function filtered(){
+    const q = filter.q.trim().toLowerCase();
+    let out = allJobs.filter(j=>{
+      if(filter.session && sessionOf(j)!==filter.session) return false;
+      if(filter.source && j.source!==filter.source) return false;
+      if(filter.status && (j._status||"")!==filter.status) return false;
+      if(!q) return true;
+      const hay = [j.company,j.title,j.location,j.source,j.description,j._reqs,j._gaps,j.salary,j._status].join(" ").toLowerCase();
+      return q.split(/\s+/).every(w=>hay.includes(w));
+    });
+    if(filter.sort==="company") out.sort((a,b)=>String(a.company||"").localeCompare(String(b.company||"")));
+    else if(filter.sort==="recent") out.sort((a,b)=>String(b._date||"").localeCompare(String(a._date||"")));
+    else out.sort((a,b)=>(normScore(b._score)??-1)-(normScore(a._score)??-1));
+    return out;
+  }
+  function updateStats(jobs, contacts){
+    const scores = jobs.map(j=>normScore(j._score)).filter(n=>n!=null);
+    $("#sJobs").textContent = jobs.length || "0";
+    $("#sJobsSub").textContent = jobs.length ? `${uniq(jobs.map(j=>j.company)).length} companies` : "no rows in jobs table yet";
+    $("#sAvg").textContent = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) : "—";
+    $("#sHigh").textContent = scores.filter(n=>n>=80).length;
+    const totalC = contacts.length ?? Object.values(contactsByJob).flat().length;
+    $("#sContacts").textContent = totalC;
+    $("#sContactsSub").textContent = totalC ? "click a job to expand" : "no rows in contacts yet";
+    $("#headline").textContent = jobs.length ? `${jobs.length} job${jobs.length===1?"":"s"} ranked by match.` : "Your matched jobs, ranked.";
+  }
+  function render(){
+    const jobs = filtered();
+    updateStats(allJobs, Object.values(contactsByJob).flat());
+    resultCount.textContent = jobs.length
+      ? `Showing ${jobs.length} of ${allJobs.length} job${allJobs.length===1?"":"s"}`
+      : allJobs.length ? "No jobs match these filters." : "Database is empty — nothing to show yet.";
+    if(!allJobs.length){
+      grid.style.display="none";
+      state.innerHTML = `
+        <div class="panel"><div class="art">✨</div>
+          <h3>No jobs yet — you're all set up</h3>
+          <p>The viewer connected to <code>jobs.db</code> successfully and found <b>0 rows</b>. As soon as your agent inserts into <code>jobs</code> (and optionally <code>contacts</code>), cards, scores, filters and stats will render here automatically.</p>
+          <ol>
+            <li>Reads the <code>jobs</code> table (<code>session_id, score, job_url, matching_reasons, potential_gaps, evaluated_at, recommendation, contacts_json, messages_json</code>) plus the <code>contacts</code> table when populated.</li>
+            <li>Referral contacts come from <code>contacts_json</code> / <code>messages_json</code> on each job row (or <code>contacts.job_id → jobs.id</code>).</li>
+            <li>Just press <b>Refresh</b> — no code changes needed.</li>
+          </ol>
+          <button class="btn primary" id="emptyRefresh">↻ Check again</button>
+        </div>`;
+      $("#emptyRefresh").onclick = loadFromUrl;
+      return;
+    }
+    if(!jobs.length){
+      grid.style.display="none";
+      state.innerHTML = `<div class="panel"><div class="art">🔍</div><h3>No matches</h3><p>Try clearing the search or choosing different filters.</p><button class="btn" id="rst">Clear filters</button></div>`;
+      $("#rst").onclick = clearFilters;
+      return;
+    }
+    state.innerHTML = "";
+    grid.style.display = "";
+    grid.innerHTML = jobs.map(cardHtml).join("");
+    grid.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>openModal(+b.dataset.open));
+    grid.querySelectorAll("[data-toggle]").forEach(b=>b.onclick=()=>b.closest(".card").classList.toggle("expanded"));
+  }
+  function cardHtml(j){
+    const n = normScore(j._score);
+    const reqs = toList(j._reqs).slice(0,4), gaps = toList(j._gaps).slice(0,3);
+    const contacts = contactsByJob[j.id] || [];
+    const reasons = toList(j._reasons).slice(0,3);
+    return `
+    <article class="card">
+      <div class="card-top">
+        <div class="avatar" style="background:${colorFor(j.company)}">${esc(initialOf(j.company))}</div>
+        <div style="min-width:0;flex:1">
+          <h3>${esc(j.title||"Untitled role")} <span>· ${esc(j.company||"Unknown")}</span></h3>
+          <div class="sub"><span>📍 ${esc(j.location||"—")}</span><span>·</span><span>${esc(j.source||"—")}</span>${j.salary?`<span>·</span><span>💰 ${esc(j.salary)}</span>`:""}${j._date?`<span>·</span><span>🗓 ${esc(String(j._date).slice(0,10))}</span>`:""}</div>
+        </div>
+        <div class="score ${scoreClass(n)}"><b>${n==null?"—":Math.round(n)}</b><i>match</i></div>
+      </div>
+      <div class="tags">
+        ${j._status?`<span class="tag status">${esc(j._status)}</span>`:`<span class="tag">not evaluated</span>`}
+        <span class="tag" title="Agent run that found this job">🗂 ${esc(sessionOf(j))}</span>
+        ${j._research?`<span class="tag">contacts: ${esc(j._research)}</span>`:""}
+        ${reqs.map(r=>`<span class="tag req">${esc(r)}</span>`).join("")}
+        ${gaps.map(g=>`<span class="tag gap">⚠ ${esc(g)}</span>`).join("")}
+      </div>
+      ${j.description?`<p class="desc">${esc(j.description)}</p>`:""}
+      ${reasons.length?`<div class="reasons">Why this score<ul>${reasons.map(r=>`<li>${esc(r)}</li>`).join("")}</ul></div>`:""}
+      <div class="actions">
+        ${j._url?`<a class="link-btn" href="${esc(j._url)}" target="_blank" rel="noopener">Apply ↗</a>`:""}
+        <button class="ghost-btn" data-open="${j.id}">Details</button>
+        ${j.description&&String(j.description).length>160?`<button class="ghost-btn" data-toggle="${j.id}">Expand</button>`:""}
+      </div>
+      <details class="contacts" ${contacts.length?"":"hidden"}>
+        <summary>👥 Referral contacts <span class="count">${contacts.length}</span></summary>
+        ${contacts.map(contactHtml).join("")}
+      </details>
+    </article>`;
+  }
+  function contactHtml(c){
+    return `<div class="contact">
+      <div><strong>${esc(c.name||"Unknown")}</strong> <span class="badge">P${esc(c.priority_rank??"—")}</span></div>
+      <div class="role">${esc(c.current_title||"")}${c.department?" · "+esc(c.department):""}${c.company?" @ "+esc(c.company):""}</div>
+      ${c.referral_potential_reason?`<p>💡 ${esc(c.referral_potential_reason)}</p>`:""}
+      ${c.technical_background?`<p>🧰 ${esc(c.technical_background)}</p>`:""}
+      ${c.profile_url?`<p><a href="${esc(c.profile_url)}" target="_blank" rel="noopener">Profile ↗</a>${c.referral_status?` · <span class="badge">${esc(c.referral_status)}</span>`:""}</p>`:""}
+      ${c.generated_message?`<div class="msg">${esc(c.generated_message)}</div>`:""}
+    </div>`;
+  }
+
+  /* ---------- modal ---------- */
+  const modal = $("#modal");
+  function openModal(id){
+    const j = allJobs.find(x=>x.id===id); if(!j) return;
+    const n = normScore(j._score);
+    $("#mTitle").textContent = `${j.title||"Untitled"} · ${j.company||""}`;
+    $("#mSub").innerHTML = `<span>📍 ${esc(j.location||"—")}</span><span>·</span><span>${esc(j.source||"—")}</span><span>·</span><span>score <b>${n==null?"—":Math.round(n)}</b></span>`;
+    const row = (k,v)=> v?`<dt>${k}</dt><dd>${v}</dd>`:"";
+    $("#mBody").innerHTML = `
+      <div class="kv">
+        ${row("URL", j._url?`<a href="${esc(j._url)}" target="_blank" rel="noopener">${esc(j._url)}</a>`:"—")}
+        ${row("Salary", esc(j.salary||"—"))}
+        ${row("Recommendation", esc(j._status||"—"))}
+        ${row("Session", esc(sessionOf(j)))}
+        ${row("Evaluated", esc(j._date||"—"))}
+        ${row("Referral research", esc(j._research||"—"))}
+      </div>
+      ${j.description?`<h4>Description</h4><p style="white-space:pre-wrap">${esc(j.description)}</p>`:""}
+      ${toList(j._reqs).length?`<h4>Requirements</h4><div class="tags">${toList(j._reqs).map(r=>`<span class="tag req">${esc(r)}</span>`).join("")}</div>`:""}
+      ${toList(j._gaps).length?`<h4>Potential gaps</h4><div class="tags">${toList(j._gaps).map(g=>`<span class="tag gap">${esc(g)}</span>`).join("")}</div>`:""}
+      ${toList(j._reasons).length?`<h4>Matching reasons</h4><ul>${toList(j._reasons).map(r=>`<li>${esc(r)}</li>`).join("")}</ul>`:""}
+      ${(contactsByJob[j.id]||[]).length?`<h4>Contacts (${contactsByJob[j.id].length})</h4>${contactsByJob[j.id].map(contactHtml).join("")}`:""}`;
+    modal.showModal();
+  }
+  $("#mClose").onclick = ()=>modal.close();
+  modal.addEventListener("click", e=>{ if(e.target===modal) modal.close(); });
+
+  /* ---------- events ---------- */
+  $("#q").addEventListener("input", e=>{ filter.q=e.target.value; render(); });
+  $("#fSession").addEventListener("change", e=>{ filter.session=e.target.value; render(); });
+  $("#fSource").addEventListener("change", e=>{ filter.source=e.target.value; render(); });
+  $("#fStatus").addEventListener("change", e=>{ filter.status=e.target.value; render(); });
+  $("#fSort").addEventListener("change", e=>{ filter.sort=e.target.value; render(); });
+  function clearFilters(){ filter={q:"",session:"",source:"",status:"",sort:"score"}; $("#q").value=""; $("#fSession").value=""; $("#fSource").value=""; $("#fStatus").value=""; $("#fSort").value="score"; render(); }
+  $("#clearBtn").onclick = clearFilters;
+  $("#refreshBtn").onclick = ()=>loadFromUrl();
+  $("#autoBtn").onclick = ()=>{
+    const b = $("#autoBtn"), on = b.getAttribute("aria-pressed") !== "true";
+    b.setAttribute("aria-pressed", String(on));
+    b.style.opacity = on ? "" : ".55";
+    if(on) startAuto(); else stopAuto();
+  };
+  $("#gridBtn").onclick = ()=>{ grid.classList.remove("list"); $("#gridBtn").setAttribute("aria-pressed","true"); $("#listBtn").setAttribute("aria-pressed","false"); };
+  $("#listBtn").onclick = ()=>{ grid.classList.add("list"); $("#listBtn").setAttribute("aria-pressed","true"); $("#gridBtn").setAttribute("aria-pressed","false"); };
+  $("#fileInput").addEventListener("change", async e=>{
+    const f = e.target.files[0]; if(!f) return;
+    await initSql(); openDb(new Uint8Array(await f.arrayBuffer()), f.name);
+  });
+  ["dragover","dragenter"].forEach(ev=>addEventListener(ev,e=>{e.preventDefault();$("#drop").classList.add("on");}));
+  ["dragleave","drop"].forEach(ev=>addEventListener(ev,e=>{e.preventDefault();$("#drop").classList.remove("on");}));
+  addEventListener("drop", async e=>{
+    const f = e.dataTransfer.files?.[0]; if(!f) return;
+    await initSql(); openDb(new Uint8Array(await f.arrayBuffer()), f.name);
+  });
+
+  loadFromUrl();
+})();
+</script>
+</body>
+</html>
