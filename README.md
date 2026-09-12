@@ -45,6 +45,33 @@ python3 run_pipeline.py        # one run, prints summary
 sqlite3 jobs.db "SELECT company, title, score FROM jobs WHERE score >= 75;"
 ```
 
+## Manual run (full flow, step by step)
+
+The automated runner covers discovery + scoring only. For the complete flow
+including contacts and drafts, work through the skills in order:
+
+1. **Discover** — open each board and collect fresh postings (title, company,
+   location, salary, full description from the detail page, URL, source):
+   jobs.rubyonrails.org, https://hirerubydevs.com/ (try the India lander),
+   LinkedIn past-24h search. Drop anything not posted today/yesterday
+   (run-relative dates, never hardcoded). Save as `jobs_raw.json`.
+2. **Evaluate** — score every job 1–100 per `skills/job_evaluator.md`
+   (seniority/Rails fit, stack overlap, location, comp, gaps capped at -30).
+   Save all results as `jobs_evaluated.json`; insert every row into `jobs`
+   with `INSERT OR IGNORE` (unique indexes reject dupes). 75+ gets
+   `referral_research_status = "pending"`, below 75 `"not_qualified"`.
+3. **Contacts** — for each 75+ job, find up to 3 people per
+   `skills/contact_finder.md` (manager → senior/staff → Rails eng → recruiter).
+   Verify current employment from public profiles; never invent URLs.
+   Insert into `contacts` linked via `job_id`, status `"pending"`.
+4. **Drafts** — write one 60–100 word message per contact per
+   `skills/message_draftsman.md`, store in `contacts.generated_message`,
+   set status `"message_drafted"`. Review, then send manually —
+   nothing here ever messages anyone on its own.
+5. **Verify** — `SELECT count(*) FROM jobs;` and
+   `SELECT c.name, j.score FROM contacts c JOIN jobs j ON c.job_id = j.id;`
+   to confirm everything landed.
+
 ## Setup (scheduler)
 
 1. Copy the runner where the scheduler expects it:
