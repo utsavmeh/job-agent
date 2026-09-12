@@ -1,0 +1,53 @@
+# job-agent
+
+Automated Ruby on Rails job search pipeline: discover fresh postings, score them
+against your profile, find referral contacts, and draft outreach — on a schedule.
+
+## How it works
+
+```
+discover (4 boards) → today/yesterday filter → score 1–100 → dedupe → jobs.db
+                                                              → contacts → referral drafts
+```
+
+1. **Scour** (`skills/job_scourer.md`) — pulls listings from jobs.rubyonrails.org,
+   HireRubyDevs, LinkedIn (Ruby on Remote is Cloudflare-blocked headless).
+   Only keeps jobs posted today or yesterday, computed from the run date.
+2. **Evaluate** (`skills/job_evaluator.md`) — scores each job 1–100 on seniority +
+   Rails alignment, stack overlap, location, compensation, minus capped skill gaps.
+   75+ = GOOD MATCH, 90+ = HIGH PRIORITY. Everything is recorded, not just winners.
+3. **Contacts** (`skills/contact_finder.md`) — 2–3 referral prospects per qualified
+   job, ranked: hiring manager → senior/staff engineer → Rails engineer → recruiter.
+   Never contacts anyone; you verify and send manually.
+4. **Drafts** (`skills/message_draftsman.md`) — short personalized referral request
+   per contact (60–100 words, low-pressure ask, resume offer).
+
+## Automated runs
+
+`run_pipeline.py` does steps 1–2 headlessly (detail-page enrichment, capped
+scoring, `INSERT OR IGNORE` dedup) and prints a summary. A cron job runs it every
+6 hours and posts the summary to Telegram. Contact research stays manual.
+
+## Data
+
+`jobs.db` (SQLite):
+
+- `jobs` — url, source, company, title, location, salary, description, **score**,
+  recommendation, matching reasons/gaps, posted/discovered dates, research status.
+  Unique indexes on normalized URL and company+title+location block duplicates.
+- `contacts` — job link, name, title, profile URL, priority, tech background,
+  referral reason, generated message, status.
+
+## Usage
+
+```bash
+python3 run_pipeline.py        # one run, prints summary
+sqlite3 jobs.db "SELECT company, title, score FROM jobs WHERE score >= 75;"
+```
+
+## Setup (scheduler)
+
+1. Copy the runner where the scheduler expects it:
+   `cp run_pipeline.py ~/.hermes/scripts/job_pipeline.py`
+   (re-copy after every edit — the schedule runs the copy).
+2. Create an every-6h job delivering to your Telegram chat.
