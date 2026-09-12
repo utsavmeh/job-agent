@@ -33,7 +33,9 @@ scoring, `INSERT OR IGNORE` dedup) and prints a summary. A cron job runs it ever
 `jobs.db` (SQLite):
 
 - `jobs` — url, source, company, title, location, salary, description, **score**,
-  recommendation, matching reasons/gaps, posted/discovered dates, research status.
+  recommendation, matching reasons/gaps, posted/discovered dates, research status,
+  embedded `contacts_json` / `messages_json`, and **`session_id`**
+  (`YYYY-MM-DD HH:MM` of the run — identical for all jobs in one run).
   Unique indexes on normalized URL and company+title+location block duplicates.
 - `contacts` — job link, name, title, profile URL, priority, tech background,
   referral reason, generated message, status.
@@ -44,6 +46,21 @@ scoring, `INSERT OR IGNORE` dedup) and prints a summary. A cron job runs it ever
 python3 run_pipeline.py        # one run, prints summary
 sqlite3 jobs.db "SELECT company, title, score FROM jobs WHERE score >= 75;"
 ```
+
+## Dashboard
+
+`index.html` is a local, no-backend viewer for `jobs.db` (loads it in-browser
+via sql.js — nothing is uploaded). Serve the folder, then open it:
+
+```bash
+python3 -m http.server 8000    # then http://localhost:8000/ (file:// won't work)
+```
+
+Stats, search, **Session filter** (one entry per agent run, newest first),
+source/status filters, sorting, per-job referral contacts, dark/light mode.
+**Auto ↻** re-reads the DB every 30s while the agent runs; **↻ Refresh** pulls
+manually. Every run must stamp `session_id` (`date "+%F %H:%M"`, same value
+for all jobs in the run) — enforced by `skills/job_scourer.md`.
 
 ## Manual run (full flow, step by step)
 
@@ -58,7 +75,8 @@ including contacts and drafts, work through the skills in order:
 2. **Evaluate** — score every job 1–100 per `skills/job_evaluator.md`
    (seniority/Rails fit, stack overlap, location, comp, gaps capped at -30).
    Save all results as `jobs_evaluated.json`; insert every row into `jobs`
-   with `INSERT OR IGNORE` (unique indexes reject dupes). 75+ gets
+    with `INSERT OR IGNORE` (unique indexes reject dupes). Stamp every row with
+    the run's `session_id` (`date "+%F %H:%M"`). 75+ gets
    `referral_research_status = "pending"`, below 75 `"not_qualified"`.
    Once all rows are in the DB, delete `jobs_raw.json` — it's transient
    scratch, and both it and `jobs.db` are gitignored so they never pile
