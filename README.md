@@ -60,6 +60,9 @@ including contacts and drafts, work through the skills in order:
    Save all results as `jobs_evaluated.json`; insert every row into `jobs`
    with `INSERT OR IGNORE` (unique indexes reject dupes). 75+ gets
    `referral_research_status = "pending"`, below 75 `"not_qualified"`.
+   Once all rows are in the DB, delete `jobs_raw.json` — it's transient
+   scratch, and both it and `jobs.db` are gitignored so they never pile
+   up in the repo.
 3. **Contacts** — for each 75+ job, find up to 3 people per
    `skills/contact_finder.md` (manager → senior/staff → Rails eng → recruiter).
    Verify current employment from public profiles; never invent URLs.
