@@ -199,6 +199,35 @@ def collect_linkedin():
                      'url': url, 'source': 'LinkedIn', 'posted_at': TODAY.isoformat()})
     return jobs, len(items)
 
+def draft_for_contact(name, title, company, job_title):
+    """Deterministic referral draft per message_draftsman.md (template by seniority).
+    Only uses verified profile facts + USER.md facts (4+ yrs Rails, PG/Redis/microservices/React).
+    First name only; falls back to full name when unparseable."""
+    first = (name or '').strip().split()[0] if (name or '').strip() else 'there'
+    t = (title or '').lower()
+    if 'manager' in t or 'director' in t or 'lead' in t:
+        body = (f"noticed you're leading engineering there. I'm a Ruby on Rails developer with 4+ years "
+                f"of experience building scalable backend systems, including PostgreSQL, Redis, and microservices.")
+    elif any(k in t for k in ('senior', 'staff', 'principal')):
+        body = (f"noticed your Ruby/Rails background there. I'm a Rails developer with 4+ years of experience, "
+                f"including PostgreSQL, Redis, microservices, and React for full-stack work.")
+    else:
+        body = (f"noticed your backend/Rails experience there. I've spent 4+ years working with Ruby on Rails, "
+                f"PostgreSQL, Redis, and React.")
+    return (f"Hi {first}, I came across {company}'s {job_title} opening and {body} "
+            f"The role looks closely aligned with my background. If you feel I could be a fit, "
+            f"would you be open to referring me? Happy to share my resume. Thanks!")
+
+def auto_draft(cur):
+    """Draft messages for contacts that have none. Returns count drafted."""
+    rows = cur.execute('''SELECT c.id, c.name, c.current_title, c.company, j.title
+                          FROM contacts c JOIN jobs j ON c.job_id = j.id
+                          WHERE (c.generated_message IS NULL OR c.generated_message = '')''').fetchall()
+    for cid, name, title, company, job_title in rows:
+        cur.execute('UPDATE contacts SET generated_message=?, referral_status=? WHERE id=?',
+                    (draft_for_contact(name, title, company, job_title), 'message_drafted', cid))
+    return len(rows)
+
 def main():
     all_jobs, li_total = [], 0
     for fn, name in ((collect_ror, 'rubyonrails.org'), (collect_hrd_india, 'HireRubyDevs')):
@@ -248,8 +277,10 @@ def main():
                 qual.append(f"{j['title']} @ {j['company']} ({s})")
     conn.commit()
     total = cur.execute('SELECT count(*) FROM jobs').fetchone()[0]
+    drafted = auto_draft(cur)
+    conn.commit()
     conn.close()
-    print(f'run={TODAY} window={YEST}..{TODAY} found={len(all_jobs)} new={inserted} dupes/rejected={skipped} db_total={total}')
+    print(f'run={TODAY} window={YEST}..{TODAY} found={len(all_jobs)} new={inserted} dupes/rejected={skipped} db_total={total} drafted={drafted}')
     if qual:
         print('QUALIFIED (75+):')
         for q in qual: print(' -', q)
