@@ -112,6 +112,16 @@
   .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:auto;padding-top:4px}
   .link-btn{text-decoration:none;font:700 13px var(--font);padding:9px 13px;border-radius:9px;background:var(--primary);color:#fff;display:inline-flex;gap:6px;align-items:center}
   .ghost-btn{font:700 13px var(--font);padding:9px 13px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer}
+  .ghost-btn.danger{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 40%,transparent)}
+  .ghost-btn.danger:hover{background:var(--danger-soft);border-color:var(--danger)}
+  .btn.danger{background:var(--danger);border-color:var(--danger);color:#fff}
+  .btn.danger:hover{filter:brightness(.92)}
+  .btn.danger:disabled{opacity:.6;cursor:wait}
+  /* Delete-confirm dialog */
+  #confirm{max-width:440px;width:calc(100vw - 40px);padding:0}
+  #confirm .modal-body p{margin:0 0 8px}
+  #confirm .warn{background:var(--danger-soft);border:1px solid color-mix(in srgb,var(--danger) 30%,transparent);color:var(--danger);border-radius:10px;padding:10px 12px;font-size:13px;margin-top:12px}
+  .confirm-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
   /* Contacts */
   details.contacts{border-top:1px solid var(--border);padding-top:10px}
   details.contacts summary{cursor:pointer;font:700 13px var(--font);color:var(--text);list-style:none;display:flex;align-items:center;gap:8px}
@@ -245,7 +255,7 @@
   </main>
 
   <footer>
-    Local-only viewer &middot; uses <code>sql.js</code> (WASM SQLite) to read <code>jobs.db</code> via <code>fetch</code> &middot; drag &amp; drop a <code>.db</code> file anywhere as fallback &middot; nothing is uploaded.
+    Local-only viewer &middot; uses <code>sql.js</code> (WASM SQLite) to read <code>jobs.db</code> via <code>fetch</code> &middot; drag &amp; drop a <code>.db</code> file anywhere as fallback &middot; nothing is uploaded &middot; 🗑 Delete (with confirmation) needs <code>python3 server.py</code>.
   </footer>
 </div>
 
@@ -257,6 +267,21 @@
     <button class="btn icon" id="mClose">✕</button>
   </div>
   <div class="modal-body" id="mBody"></div>
+</dialog>
+
+<dialog id="confirm" aria-labelledby="cTitle">
+  <div class="modal-head">
+    <div style="flex:1"><h3 id="cTitle" style="margin:0">Delete this job?</h3></div>
+    <button class="btn icon" id="cClose">✕</button>
+  </div>
+  <div class="modal-body">
+    <p id="cMsg">Are you sure?</p>
+    <div class="warn" id="cWarn" hidden></div>
+    <div class="confirm-actions">
+      <button class="btn" id="cCancel">Cancel</button>
+      <button class="btn danger" id="cDelete">Delete</button>
+    </div>
+  </div>
 </dialog>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
@@ -502,6 +527,7 @@
     grid.innerHTML = jobs.map(cardHtml).join("");
     grid.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>openModal(+b.dataset.open));
     grid.querySelectorAll("[data-toggle]").forEach(b=>b.onclick=()=>b.closest(".card").classList.toggle("expanded"));
+    grid.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>openDeleteConfirm(+b.dataset.del));
   }
   function cardHtml(j){
     const n = normScore(j._score);
@@ -531,6 +557,7 @@
         ${j._url?`<a class="link-btn" href="${esc(j._url)}" target="_blank" rel="noopener">Apply ↗</a>`:""}
         <button class="ghost-btn" data-open="${j.id}">Details</button>
         ${j.description&&String(j.description).length>160?`<button class="ghost-btn" data-toggle="${j.id}">Expand</button>`:""}
+        <button class="ghost-btn danger" data-del="${j.id}" title="Delete this job from jobs.db">🗑 Delete</button>
       </div>
       <details class="contacts" ${contacts.length?"":"hidden"}>
         <summary>👥 Referral contacts <span class="count">${contacts.length}</span></summary>
@@ -570,11 +597,55 @@
       ${toList(j._reqs).length?`<h4>Requirements</h4><div class="tags">${toList(j._reqs).map(r=>`<span class="tag req">${esc(r)}</span>`).join("")}</div>`:""}
       ${toList(j._gaps).length?`<h4>Potential gaps</h4><div class="tags">${toList(j._gaps).map(g=>`<span class="tag gap">${esc(g)}</span>`).join("")}</div>`:""}
       ${toList(j._reasons).length?`<h4>Matching reasons</h4><ul>${toList(j._reasons).map(r=>`<li>${esc(r)}</li>`).join("")}</ul>`:""}
-      ${(contactsByJob[j.id]||[]).length?`<h4>Contacts (${contactsByJob[j.id].length})</h4>${contactsByJob[j.id].map(contactHtml).join("")}`:""}`;
+      ${(contactsByJob[j.id]||[]).length?`<h4>Contacts (${contactsByJob[j.id].length})</h4>${contactsByJob[j.id].map(contactHtml).join("")}`:""}
+      <h4>Danger zone</h4>
+      <p><button class="ghost-btn danger" id="mDelete">🗑 Delete this job from jobs.db</button></p>`;
+    const delBtn = $("#mDelete");
+    if(delBtn) delBtn.onclick = ()=>openDeleteConfirm(j.id);
     modal.showModal();
   }
   $("#mClose").onclick = ()=>modal.close();
   modal.addEventListener("click", e=>{ if(e.target===modal) modal.close(); });
+
+  /* ---------- delete with confirmation ---------- */
+  const confirmDlg = $("#confirm"), cMsg = $("#cMsg"), cWarn = $("#cWarn"),
+        cDelete = $("#cDelete"), cCancel = $("#cCancel"), cClose = $("#cClose");
+  let pendingDeleteId = null;
+  function openDeleteConfirm(id){
+    const j = allJobs.find(x=>x.id===id); if(!j) return;
+    pendingDeleteId = id;
+    cWarn.hidden = true; cWarn.textContent = "";
+    cDelete.disabled = false; cDelete.textContent = "Delete";
+    const nContacts = (contactsByJob[id]||[]).length;
+    cMsg.innerHTML = `Delete <b>${esc(j.title||"Untitled role")}</b> at <b>${esc(j.company||"Unknown")}</b> (id ${j.id}) permanently from <b>jobs.db</b>${nContacts?` along with its <b>${nContacts} contact${nContacts===1?"":"s"}</b>`:""}? This cannot be undone.`;
+    if(modal.open) modal.close();
+    confirmDlg.showModal();
+  }
+  function closeConfirm(){ confirmDlg.close(); pendingDeleteId = null; }
+  cCancel.onclick = closeConfirm;
+  cClose.onclick = closeConfirm;
+  confirmDlg.addEventListener("click", e=>{ if(e.target===confirmDlg) closeConfirm(); });
+  addEventListener("keydown", e=>{ if(e.key==="Escape" && confirmDlg.open) closeConfirm(); });
+  cDelete.onclick = async ()=>{
+    if(pendingDeleteId==null) return;
+    const id = pendingDeleteId;
+    cDelete.disabled = true; cDelete.textContent = "Deleting…";
+    cWarn.hidden = true;
+    try{
+      const r = await fetch(`/api/jobs/${id}`, {method:"DELETE"});
+      let data = null;
+      try{ data = await r.json(); }catch(e){}
+      if(!r.ok || !data || !data.ok) throw new Error((data && data.error) || `HTTP ${r.status}`);
+      closeConfirm();
+      setStatus(null, "Deleted — reloading…");
+      await loadFromUrl({silent:true});
+      setStatus(true, `Deleted job ${id} · ${allJobs.length} jobs left`);
+    }catch(err){
+      cDelete.disabled = false; cDelete.textContent = "Delete";
+      cWarn.hidden = false;
+      cWarn.textContent = `Couldn't delete (${err.message}). Deletion needs the API server: run "python3 server.py" instead of "python3 -m http.server", then press Refresh and try again.`;
+    }
+  };
 
   /* ---------- events ---------- */
   $("#q").addEventListener("input", e=>{ filter.q=e.target.value; render(); });

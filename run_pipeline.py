@@ -9,11 +9,11 @@ Detail pages are fetched for every in-window job so scoring uses the full
 description; rows are never overwritten (OR IGNORE), so enriched rows are safe.
 Contact research + message drafting stay manual (require verification).
 """
-import json, re, sqlite3, html as ihtml
+import json, re, sqlite3, html as ihtml, os
 from datetime import datetime, timedelta, timezone
 from urllib.request import Request, urlopen
 
-BASE = '/Users/utsavmehrotra/Desktop/Ktech/job-agent'
+BASE = os.path.dirname(os.path.abspath(__file__))
 IST = timezone(timedelta(hours=5, minutes=30))
 UA = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36'}
 
@@ -280,6 +280,10 @@ def main():
     drafted = auto_draft(cur)
     conn.commit()
     conn.close()
+    # clean up transient JSON scratch files
+    for f in (BASE + '/jobs_raw.json', BASE + '/contacts.json', BASE + '/referral_messages.json'):
+        try: os.remove(f)
+        except OSError: pass
     print(f'run={TODAY} window={YEST}..{TODAY} found={len(all_jobs)} new={inserted} dupes/rejected={skipped} db_total={total} drafted={drafted}')
     if qual:
         print('QUALIFIED (75+):')
