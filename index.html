@@ -69,7 +69,7 @@
   .stat small{color:var(--text-muted);font-size:12.5px}
 
   /* Toolbar */
-  .toolbar{position:sticky;top:68px;z-index:20;background:var(--bg-soft);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--card-shadow);padding:12px;display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr 1fr auto;gap:10px;margin:14px 0 18px}
+  .toolbar{position:sticky;top:68px;z-index:20;background:var(--bg-soft);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--card-shadow);padding:12px;display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr 1fr 1fr auto;gap:10px;margin:14px 0 18px}
   .field{display:flex;flex-direction:column;gap:5px;min-width:0}
   .field label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted)}
   .field input,.field select{background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:9px;padding:10px 11px;font:500 13.5px var(--font);width:100%;outline:none}
@@ -230,6 +230,14 @@
       <select id="fStatus"><option value="">All statuses</option></select>
     </div>
     <div class="field">
+      <label for="fApplied">Applied</label>
+      <select id="fApplied">
+        <option value="">All jobs</option>
+        <option value="yes">Applied ✓</option>
+        <option value="no">Not applied</option>
+      </select>
+    </div>
+    <div class="field">
       <label for="fSort">Sort by</label>
       <select id="fSort">
         <option value="score">Match score ↓</option>
@@ -256,7 +264,7 @@
   </main>
 
   <footer>
-    Local-only viewer &middot; uses <code>sql.js</code> (WASM SQLite) to read <code>jobs.db</code> via <code>fetch</code> &middot; drag &amp; drop a <code>.db</code> file anywhere as fallback &middot; nothing is uploaded &middot; 🗑 Delete (with confirmation) needs <code>python3 server.py</code>.
+    Local-only viewer &middot; uses <code>sql.js</code> (WASM SQLite) to read <code>jobs.db</code> via <code>fetch</code> &middot; drag &amp; drop a <code>.db</code> file anywhere as fallback &middot; nothing is uploaded &middot; 🗑 Delete &amp; ✓ Applied (with confirmation) need <code>python3 server.py</code>.
   </footer>
 </div>
 
@@ -293,7 +301,7 @@
   const $ = s => document.querySelector(s);
   const grid = $("#grid"), state = $("#state"), resultCount = $("#resultCount");
   const dbDot = $("#dbDot"), dbText = $("#dbText");
-  let SQL = null, db = null, allJobs = [], contactsByJob = {}, filter = {q:"", session:"", source:"", status:"", sort:"score"};
+  let SQL = null, db = null, allJobs = [], contactsByJob = {}, filter = {q:"", session:"", source:"", status:"", applied:"", sort:"score"};
   let autoTimer = null;
 
   /* ---------- theme ---------- */
@@ -372,6 +380,7 @@
     j._reqs = r.requirements ?? null;
     j._date = r.evaluated_at ?? r.date_discovered ?? null;
     j._status = r.recommendation ?? r.application_status ?? "";
+    j._applied = !!((r ?? {}).applied ?? 0);
     j._research = r.referral_research_status || "";
     const embedded = parseJsonArray(r.contacts_json);
     const messages = parseJsonArray(r.messages_json);
@@ -499,6 +508,8 @@
       if(filter.session && sessionOf(j)!==filter.session) return false;
       if(filter.source && j.source!==filter.source) return false;
       if(filter.status && (j._status||"")!==filter.status) return false;
+      if(filter.applied==="yes" && !j._applied) return false;
+      if(filter.applied==="no" && j._applied) return false;
       if(!q) return true;
       const hay = [j.company,j.title,j.location,j.source,cleanDesc(j.description),j._reqs,j._gaps,j.salary,j._status].join(" ").toLowerCase();
       return q.split(/\s+/).every(w=>hay.includes(w));
@@ -553,6 +564,8 @@
     grid.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>openModal(+b.dataset.open));
     grid.querySelectorAll("[data-toggle]").forEach(b=>b.onclick=()=>b.closest(".card").classList.toggle("expanded"));
     grid.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>openDeleteConfirm(+b.dataset.del));
+    grid.querySelectorAll("[data-apply]").forEach(b=>b.onclick=()=>openAppliedConfirm(+b.dataset.apply, true));
+    grid.querySelectorAll("[data-unapply]").forEach(b=>b.onclick=()=>openAppliedConfirm(+b.dataset.unapply, false));
   }
   function cardHtml(j){
     const n = normScore(j._score);
@@ -572,6 +585,7 @@
       </div>
       <div class="tags">
         ${j._status?`<span class="tag status">${esc(j._status)}</span>`:`<span class="tag">not evaluated</span>`}
+        ${j._applied?`<span class="tag status">✓ Applied</span>`:""}
         <span class="tag" title="Agent run that found this job">🗂 ${esc(sessionOf(j))}</span>
         ${j._research?`<span class="tag">contacts: ${esc(j._research)}</span>`:""}
         ${reqs.map(r=>`<span class="tag req">${esc(r)}</span>`).join("")}
@@ -583,6 +597,9 @@
         ${j._url?`<a class="link-btn" href="${esc(j._url)}" target="_blank" rel="noopener">Apply ↗</a>`:""}
         <button class="ghost-btn" data-open="${j.id}">Details</button>
         ${cleanDesc(j.description).length>160?`<button class="ghost-btn" data-toggle="${j.id}">Expand</button>`:""}
+        ${j._applied
+          ? `<button class="ghost-btn" data-unapply="${j.id}" title="Remove the applied mark">↩ Unmark</button>`
+          : `<button class="ghost-btn" data-apply="${j.id}">✓ Mark applied</button>`}
       </div>
       <details class="contacts" ${contacts.length?"":"hidden"}>
         <summary>👥 Referral contacts <span class="count">${contacts.length}</span></summary>
@@ -596,6 +613,7 @@
       <div class="role">${esc(c.current_title||"")}${c.department?" · "+esc(c.department):""}${c.company?" @ "+esc(c.company):""}</div>
       ${c.referral_potential_reason?`<p>💡 ${esc(c.referral_potential_reason)}</p>`:""}
       ${c.technical_background?`<p>🧰 ${esc(c.technical_background)}</p>`:""}
+      ${c.connection_note&&String(c.connection_note).trim()?`<div class="msg">📝 ${esc(c.connection_note)}</div>`:""}
       ${c.profile_url?`<p><a href="${esc(c.profile_url)}" target="_blank" rel="noopener">Profile ↗</a>${c.referral_status?` · <span class="badge">${esc(c.referral_status)}</span>`:""}</p>`:""}
       ${c.generated_message?`<div class="msg">${esc(c.generated_message)}</div>`:""}
     </div>`;
@@ -617,55 +635,91 @@
         ${row("Session", esc(sessionOf(j)))}
         ${row("Evaluated", esc(j._date||"—"))}
         ${row("Referral research", esc(j._research||"—"))}
+        ${row("Applied", j._applied ? "✓ Yes" : "No")}
       </div>
+      <p><button class="ghost-btn" id="mApply">${j._applied ? "↩ Remove applied mark" : "✓ Mark as applied"}</button></p>
       ${j.description?`<h4>Description</h4><p style="white-space:pre-wrap">${esc(cleanDesc(j.description))}</p>`:""}
       ${toList(j._reqs).length?`<h4>Requirements</h4><div class="tags">${toList(j._reqs).map(r=>`<span class="tag req">${esc(r)}</span>`).join("")}</div>`:""}
       ${toList(j._gaps).length?`<h4>Potential gaps</h4><div class="tags">${toList(j._gaps).map(g=>`<span class="tag gap">${esc(g)}</span>`).join("")}</div>`:""}
       ${toList(j._reasons).length?`<h4>Matching reasons</h4><ul>${toList(j._reasons).map(r=>`<li>${esc(r)}</li>`).join("")}</ul>`:""}
       ${(contactsByJob[j.id]||[]).length?`<h4>Contacts (${contactsByJob[j.id].length})</h4>${contactsByJob[j.id].map(contactHtml).join("")}`:""}`;
     $("#mDel").onclick = ()=>openDeleteConfirm(j.id);
+    $("#mApply").onclick = ()=>openAppliedConfirm(j.id, !j._applied);
     modal.showModal();
   }
   $("#mClose").onclick = ()=>modal.close();
   modal.addEventListener("click", e=>{ if(e.target===modal) modal.close(); });
 
-  /* ---------- delete with confirmation ---------- */
-  const confirmDlg = $("#confirm"), cMsg = $("#cMsg"), cWarn = $("#cWarn"),
+  /* ---------- confirmation dialog (delete / mark applied) ---------- */
+  const confirmDlg = $("#confirm"), cTitle = $("#cTitle"), cMsg = $("#cMsg"), cWarn = $("#cWarn"),
         cDelete = $("#cDelete"), cCancel = $("#cCancel"), cClose = $("#cClose");
-  let pendingDeleteId = null;
-  function openDeleteConfirm(id){
-    const j = allJobs.find(x=>x.id===id); if(!j) return;
-    pendingDeleteId = id;
+  let pendingConfirm = null;
+  function openConfirm({title, message, okLabel, kind, run}){
+    pendingConfirm = {run, okLabel};
+    cTitle.textContent = title;
+    cMsg.innerHTML = message;
     cWarn.hidden = true; cWarn.textContent = "";
-    cDelete.disabled = false; cDelete.textContent = "Delete";
-    const nContacts = (contactsByJob[id]||[]).length;
-    cMsg.innerHTML = `Delete <b>${esc(j.title||"Untitled role")}</b> at <b>${esc(j.company||"Unknown")}</b> (id ${j.id}) permanently from <b>jobs.db</b>${nContacts?` along with its <b>${nContacts} contact${nContacts===1?"":"s"}</b>`:""}? This cannot be undone.`;
+    cDelete.disabled = false; cDelete.textContent = okLabel;
+    cDelete.className = "btn " + (kind === "danger" ? "danger" : "primary");
     if(modal.open) modal.close();
     confirmDlg.showModal();
   }
-  function closeConfirm(){ confirmDlg.close(); pendingDeleteId = null; }
+  function closeConfirm(){ confirmDlg.close(); pendingConfirm = null; }
   cCancel.onclick = closeConfirm;
   cClose.onclick = closeConfirm;
   confirmDlg.addEventListener("click", e=>{ if(e.target===confirmDlg) closeConfirm(); });
   addEventListener("keydown", e=>{ if(e.key==="Escape" && confirmDlg.open) closeConfirm(); });
+  async function api(path, opts){
+    const r = await fetch(path, opts);
+    let data = null;
+    try{ data = await r.json(); }catch(e){}
+    if(!r.ok || !data || !data.ok) throw new Error((data && data.error) || `HTTP ${r.status}`);
+    return data;
+  }
+  function openDeleteConfirm(id){
+    const j = allJobs.find(x=>x.id===id); if(!j) return;
+    const nContacts = (contactsByJob[id]||[]).length;
+    openConfirm({
+      title: "Delete this job?", okLabel: "Delete", kind: "danger",
+      message: `Delete <b>${esc(j.title||"Untitled role")}</b> at <b>${esc(j.company||"Unknown")}</b> (id ${j.id}) permanently from <b>jobs.db</b>${nContacts?` along with its <b>${nContacts} contact${nContacts===1?"":"s"}</b>`:""}? This cannot be undone.`,
+      run: async ()=>{
+        await api(`/api/jobs/${id}`, {method:"DELETE"});
+        setStatus(null, "Deleted — reloading…");
+        await loadFromUrl({silent:true});
+        setStatus(true, `Deleted job ${id} · ${allJobs.length} jobs left`);
+      }
+    });
+  }
+  function openAppliedConfirm(id, toApplied){
+    const j = allJobs.find(x=>x.id===id); if(!j) return;
+    openConfirm({
+      title: toApplied ? "Mark as applied?" : "Remove applied mark?",
+      okLabel: toApplied ? "Mark applied" : "Remove mark",
+      kind: toApplied ? "primary" : "danger",
+      message: toApplied
+        ? `Mark <b>${esc(j.title||"Untitled role")}</b> at <b>${esc(j.company||"Unknown")}</b> as <b>applied</b>? It will get a ✓ Applied badge and show up under the Applied filter.`
+        : `Remove the applied mark from <b>${esc(j.title||"Untitled role")}</b> at <b>${esc(j.company||"Unknown")}</b>?`,
+      run: async ()=>{
+        await api(`/api/jobs/${id}`, {method:"PATCH",
+          headers:{"Content-Type":"application/json"}, body:JSON.stringify({applied:toApplied})});
+        setStatus(null, "Saving — reloading…");
+        await loadFromUrl({silent:true});
+        setStatus(true, toApplied ? `Marked job ${id} as applied` : `Removed applied mark from job ${id}`);
+      }
+    });
+  }
   cDelete.onclick = async ()=>{
-    if(pendingDeleteId==null) return;
-    const id = pendingDeleteId;
-    cDelete.disabled = true; cDelete.textContent = "Deleting…";
+    if(!pendingConfirm) return;
+    const {run, okLabel} = pendingConfirm;
+    cDelete.disabled = true; cDelete.textContent = "Saving…";
     cWarn.hidden = true;
     try{
-      const r = await fetch(`/api/jobs/${id}`, {method:"DELETE"});
-      let data = null;
-      try{ data = await r.json(); }catch(e){}
-      if(!r.ok || !data || !data.ok) throw new Error((data && data.error) || `HTTP ${r.status}`);
+      await run();
       closeConfirm();
-      setStatus(null, "Deleted — reloading…");
-      await loadFromUrl({silent:true});
-      setStatus(true, `Deleted job ${id} · ${allJobs.length} jobs left`);
     }catch(err){
-      cDelete.disabled = false; cDelete.textContent = "Delete";
+      cDelete.disabled = false; cDelete.textContent = okLabel;
       cWarn.hidden = false;
-      cWarn.textContent = `Couldn't delete (${err.message}). Deletion needs the API server: run "python3 server.py" instead of "python3 -m http.server", then press Refresh and try again.`;
+      cWarn.textContent = `Couldn't save (${err.message}). This needs the API server: run "python3 server.py" instead of "python3 -m http.server", then press Refresh and try again.`;
     }
   };
 
@@ -674,8 +728,9 @@
   $("#fSession").addEventListener("change", e=>{ filter.session=e.target.value; render(); });
   $("#fSource").addEventListener("change", e=>{ filter.source=e.target.value; render(); });
   $("#fStatus").addEventListener("change", e=>{ filter.status=e.target.value; render(); });
+  $("#fApplied").addEventListener("change", e=>{ filter.applied=e.target.value; render(); });
   $("#fSort").addEventListener("change", e=>{ filter.sort=e.target.value; render(); });
-  function clearFilters(){ filter={q:"",session:"",source:"",status:"",sort:"score"}; $("#q").value=""; $("#fSession").value=""; $("#fSource").value=""; $("#fStatus").value=""; $("#fSort").value="score"; render(); }
+  function clearFilters(){ filter={q:"",session:"",source:"",status:"",applied:"",sort:"score"}; $("#q").value=""; $("#fSession").value=""; $("#fSource").value=""; $("#fStatus").value=""; $("#fApplied").value=""; $("#fSort").value="score"; render(); }
   $("#clearBtn").onclick = clearFilters;
   $("#refreshBtn").onclick = ()=>loadFromUrl();
   $("#autoBtn").onclick = ()=>{

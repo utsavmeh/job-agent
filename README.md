@@ -58,17 +58,18 @@ python3 server.py            # then http://localhost:8000/ (file:// won't work)
 python3 server.py 8080       # custom port
 ```
 
-`server.py` serves the folder statically and also provides the delete API
-(`DELETE /api/jobs/<id>`, removes the job plus its `contacts` rows).
-The 🗑 Delete button on each job card (and in the Details modal) asks for
-confirmation first, then calls this API and reloads the DB.
+`server.py` serves the folder statically and also provides the write API:
+`DELETE /api/jobs/<id>` (removes the job plus its `contacts` rows) and
+`PATCH /api/jobs/<id>` with `{"applied": true|false}` (flips the `applied`
+flag on the job). The 🗑 Delete icon and the ✓ Mark applied button ask for
+confirmation first, then call the API and reload the DB.
 
 > Plain `python3 -m http.server` still works for read-only viewing, but
-> Delete needs `python3 server.py` — the dashboard will tell you if the
-> API is unreachable.
+> Delete / Mark applied need `python3 server.py` — the dashboard will tell
+> you if the API is unreachable.
 
 Stats, search, **Session filter** (one entry per agent run, newest first),
-source/status filters, sorting, per-job referral contacts, dark/light mode.
+source/status/applied filters, sorting, per-job referral contacts, dark/light mode.
 **Auto ↻** re-reads the DB every 30s while the agent runs; **↻ Refresh** pulls
 manually. Every run must stamp `session_id` (`date "+%F %H:%M"`, same value
 for all jobs in the run) — enforced by `skills/job_scourer.md`.
