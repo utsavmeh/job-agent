@@ -308,6 +308,16 @@
 
   /* ---------- helpers ---------- */
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  /* Descriptions are sometimes stored with raw HTML (tags/entities). Render
+     as plain text so markup never leaks into the UI. */
+  const _ta = document.createElement("textarea");
+  function cleanDesc(v){
+    let s = String(v ?? "");
+    if(!s.trim()) return "";
+    s = s.replace(/<[^>]*>/g, " ");   // strip tags
+    _ta.innerHTML = s; s = _ta.value;  // decode entities
+    return s.replace(/[ \t\u00a0]+/g, " ").replace(/\n[ \t]*\n(\s*\n)+/g, "\n\n").trim();
+  }
   const normScore = v => { let n = parseFloat(v); if(isNaN(n)) return null; if(n>0 && n<=1) n*=100; return Math.max(0,Math.min(100,n)); };
   const scoreClass = n => n==null ? "low" : n>=80 ? "high" : n>=60 ? "mid" : "low";
   function toList(v){
@@ -420,12 +430,25 @@
   function ingest(rows, contacts, name){
     allJobs = rows.map(normalizeJob);
     contactsByJob = {};
-    const addContact = c => { const k = c.job_id; (contactsByJob[k] = contactsByJob[k] || []).push(c); };
-    for(const j of allJobs) for(const c of j._embeddedContacts) addContact(c); // contacts_json
+    // The same person can live in BOTH contacts_json (embedded on the job
+    // row) and the contacts table. Dedupe per job on name+profile_url so
+    // they aren't shown twice; the contacts-table row wins (it carries the
+    // verified message/status).
+    const rankOf = c => { const n = parseInt(c.priority_rank, 10); return isNaN(n) ? 99 : n; };
+    const contactKey = c => `${String(c.name||"").trim().toLowerCase()}|${String(c.profile_url||"").trim().toLowerCase()}`;
+    const byJob = {};
+    const addContact = (c, overwrite) => {
+      const m = (byJob[c.job_id] = byJob[c.job_id] || new Map());
+      const k = contactKey(c);
+      if(overwrite || !m.has(k)) m.set(k, c);
+    };
+    for(const j of allJobs) for(const c of j._embeddedContacts) addContact(c, false); // contacts_json
     contacts
       .slice()
-      .sort((a,b) => ((a.priority_rank ?? 99) - (b.priority_rank ?? 99)) || ((a.id ?? 0) - (b.id ?? 0)))
-      .forEach(addContact); // contacts table, if populated
+      .sort((a,b) => (rankOf(a) - rankOf(b)) || ((a.id ?? 0) - (b.id ?? 0)))
+      .forEach(c => addContact(c, true)); // contacts table, wins on duplicates
+    for(const k of Object.keys(byJob))
+      contactsByJob[k] = [...byJob[k].values()].sort((a,b) => (rankOf(a) - rankOf(b)) || String(a.name||"").localeCompare(String(b.name||"")));
     const totalC = Object.values(contactsByJob).flat().length;
     setStatus(true, `${name} · ${allJobs.length} job${allJobs.length===1?"":"s"} · ${totalC} contact${totalC===1?"":"s"}`);
     buildFilters(); render();
@@ -477,7 +500,7 @@
       if(filter.source && j.source!==filter.source) return false;
       if(filter.status && (j._status||"")!==filter.status) return false;
       if(!q) return true;
-      const hay = [j.company,j.title,j.location,j.source,j.description,j._reqs,j._gaps,j.salary,j._status].join(" ").toLowerCase();
+      const hay = [j.company,j.title,j.location,j.source,cleanDesc(j.description),j._reqs,j._gaps,j.salary,j._status].join(" ").toLowerCase();
       return q.split(/\s+/).every(w=>hay.includes(w));
     });
     if(filter.sort==="company") out.sort((a,b)=>String(a.company||"").localeCompare(String(b.company||"")));
@@ -554,12 +577,12 @@
         ${reqs.map(r=>`<span class="tag req">${esc(r)}</span>`).join("")}
         ${gaps.map(g=>`<span class="tag gap">⚠ ${esc(g)}</span>`).join("")}
       </div>
-      ${j.description?`<p class="desc">${esc(j.description)}</p>`:""}
+      ${j.description?`<p class="desc">${esc(cleanDesc(j.description))}</p>`:""}
       ${reasons.length?`<div class="reasons">Why this score<ul>${reasons.map(r=>`<li>${esc(r)}</li>`).join("")}</ul></div>`:""}
       <div class="actions">
         ${j._url?`<a class="link-btn" href="${esc(j._url)}" target="_blank" rel="noopener">Apply ↗</a>`:""}
         <button class="ghost-btn" data-open="${j.id}">Details</button>
-        ${j.description&&String(j.description).length>160?`<button class="ghost-btn" data-toggle="${j.id}">Expand</button>`:""}
+        ${cleanDesc(j.description).length>160?`<button class="ghost-btn" data-toggle="${j.id}">Expand</button>`:""}
       </div>
       <details class="contacts" ${contacts.length?"":"hidden"}>
         <summary>👥 Referral contacts <span class="count">${contacts.length}</span></summary>
@@ -595,7 +618,7 @@
         ${row("Evaluated", esc(j._date||"—"))}
         ${row("Referral research", esc(j._research||"—"))}
       </div>
-      ${j.description?`<h4>Description</h4><p style="white-space:pre-wrap">${esc(j.description)}</p>`:""}
+      ${j.description?`<h4>Description</h4><p style="white-space:pre-wrap">${esc(cleanDesc(j.description))}</p>`:""}
       ${toList(j._reqs).length?`<h4>Requirements</h4><div class="tags">${toList(j._reqs).map(r=>`<span class="tag req">${esc(r)}</span>`).join("")}</div>`:""}
       ${toList(j._gaps).length?`<h4>Potential gaps</h4><div class="tags">${toList(j._gaps).map(g=>`<span class="tag gap">${esc(g)}</span>`).join("")}</div>`:""}
       ${toList(j._reasons).length?`<h4>Matching reasons</h4><ul>${toList(j._reasons).map(r=>`<li>${esc(r)}</li>`).join("")}</ul>`:""}
