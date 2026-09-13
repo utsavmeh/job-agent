@@ -46,7 +46,7 @@ A role may still be considered if Ruby/Rails is one of the meaningful technologi
 
 ### 3. Clearly Unsuitable Compensation
 
-If compensation is explicitly provided and is clearly below the user's target of ₹28 LPA, significantly deprioritize or reject the role.
+If compensation is explicitly provided and is clearly below the user's target of ₹25 LPA, significantly deprioritize or reject the role.
 
 Do **not** reject a job solely because compensation information is unavailable.
 
@@ -134,11 +134,11 @@ Do not assume that an international role is remote unless the job description ex
 
 ## 4. Compensation — Maximum +15
 
-The user's target compensation is approximately **₹28 LPA or higher**.
+The user's target compensation is approximately **₹25 LPA or higher**.
 
 Award:
 
-* +15: Explicitly ≥ ₹28 LPA or clearly equivalent
+* +15: Explicitly ≥ ₹25 LPA or clearly equivalent
 * +10: Compensation appears close to the target
 * +5: Compensation is unknown
 * +0: Clearly below the target
@@ -340,7 +340,7 @@ The agent must stop searching when **any one** of the following conditions is re
 * 20 unique job listings have been collected, OR
 * 10 search queries have been executed for a source, OR
 * 2 pages have been checked for a search query, OR
-* 5 minutes have elapsed since the discovery run started, OR
+* 10 minutes have elapsed since the discovery run started, OR
 * No new jobs are being discovered from the current source.
 
 Do not continue searching simply because more jobs might exist.
