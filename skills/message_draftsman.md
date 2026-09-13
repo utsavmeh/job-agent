@@ -88,7 +88,7 @@ Messages should be:
 * Personalised
 * Easy to read
 
-Target approximately **60–100 words**.
+Target strictly not more than **300 characters**.
 
 Avoid unnecessary introductions or long explanations.
 

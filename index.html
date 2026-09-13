@@ -112,8 +112,9 @@
   .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:auto;padding-top:4px}
   .link-btn{text-decoration:none;font:700 13px var(--font);padding:9px 13px;border-radius:9px;background:var(--primary);color:#fff;display:inline-flex;gap:6px;align-items:center}
   .ghost-btn{font:700 13px var(--font);padding:9px 13px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer}
-  .ghost-btn.danger{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 40%,transparent)}
-  .ghost-btn.danger:hover{background:var(--danger-soft);border-color:var(--danger)}
+  .del-icon{appearance:none;border:0;background:transparent;color:var(--text-faint);cursor:pointer;font-size:14px;line-height:1;padding:6px;border-radius:8px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center}
+  .del-icon:hover{color:var(--danger);background:var(--danger-soft)}
+  .del-icon svg{display:block}
   .btn.danger{background:var(--danger);border-color:var(--danger);color:#fff}
   .btn.danger:hover{filter:brightness(.92)}
   .btn.danger:disabled{opacity:.6;cursor:wait}
@@ -264,6 +265,7 @@
 <dialog id="modal">
   <div class="modal-head">
     <div style="flex:1"><h3 id="mTitle" style="margin:0"></h3><div class="sub" id="mSub"></div></div>
+    <button class="del-icon" id="mDel" title="Delete this job"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
     <button class="btn icon" id="mClose">✕</button>
   </div>
   <div class="modal-body" id="mBody"></div>
@@ -543,6 +545,7 @@
           <div class="sub"><span>📍 ${esc(j.location||"—")}</span><span>·</span><span>${esc(j.source||"—")}</span>${j.salary?`<span>·</span><span>💰 ${esc(j.salary)}</span>`:""}${j._date?`<span>·</span><span>🗓 ${esc(String(j._date).slice(0,10))}</span>`:""}</div>
         </div>
         <div class="score ${scoreClass(n)}"><b>${n==null?"—":Math.round(n)}</b><i>match</i></div>
+        <button class="del-icon" data-del="${j.id}" title="Delete this job"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
       </div>
       <div class="tags">
         ${j._status?`<span class="tag status">${esc(j._status)}</span>`:`<span class="tag">not evaluated</span>`}
@@ -557,7 +560,6 @@
         ${j._url?`<a class="link-btn" href="${esc(j._url)}" target="_blank" rel="noopener">Apply ↗</a>`:""}
         <button class="ghost-btn" data-open="${j.id}">Details</button>
         ${j.description&&String(j.description).length>160?`<button class="ghost-btn" data-toggle="${j.id}">Expand</button>`:""}
-        <button class="ghost-btn danger" data-del="${j.id}" title="Delete this job from jobs.db">🗑 Delete</button>
       </div>
       <details class="contacts" ${contacts.length?"":"hidden"}>
         <summary>👥 Referral contacts <span class="count">${contacts.length}</span></summary>
@@ -597,11 +599,8 @@
       ${toList(j._reqs).length?`<h4>Requirements</h4><div class="tags">${toList(j._reqs).map(r=>`<span class="tag req">${esc(r)}</span>`).join("")}</div>`:""}
       ${toList(j._gaps).length?`<h4>Potential gaps</h4><div class="tags">${toList(j._gaps).map(g=>`<span class="tag gap">${esc(g)}</span>`).join("")}</div>`:""}
       ${toList(j._reasons).length?`<h4>Matching reasons</h4><ul>${toList(j._reasons).map(r=>`<li>${esc(r)}</li>`).join("")}</ul>`:""}
-      ${(contactsByJob[j.id]||[]).length?`<h4>Contacts (${contactsByJob[j.id].length})</h4>${contactsByJob[j.id].map(contactHtml).join("")}`:""}
-      <h4>Danger zone</h4>
-      <p><button class="ghost-btn danger" id="mDelete">🗑 Delete this job from jobs.db</button></p>`;
-    const delBtn = $("#mDelete");
-    if(delBtn) delBtn.onclick = ()=>openDeleteConfirm(j.id);
+      ${(contactsByJob[j.id]||[]).length?`<h4>Contacts (${contactsByJob[j.id].length})</h4>${contactsByJob[j.id].map(contactHtml).join("")}`:""}`;
+    $("#mDel").onclick = ()=>openDeleteConfirm(j.id);
     modal.showModal();
   }
   $("#mClose").onclick = ()=>modal.close();
