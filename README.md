@@ -16,9 +16,9 @@ discover (4 boards) → today/yesterday filter → score 1–100 → dedupe → 
 2. **Evaluate** (`skills/job_evaluator.md`) — scores each job 1–100 on seniority +
    Rails alignment, stack overlap, location, compensation, minus capped skill gaps.
    75+ = GOOD MATCH, 90+ = HIGH PRIORITY. Everything is recorded, not just winners.
-3. **Contacts** (`skills/contact_finder.md`) — 2–3 referral prospects per qualified
-   job, ranked: hiring manager → senior/staff engineer → Rails engineer → recruiter.
-   Never contacts anyone; you verify and send manually.
+3. **Contacts** (`skills/contact_finder.md`) — 2–3 referral prospects per recorded
+   job (every job in `jobs.db`, not only 75+), ranked: hiring manager → senior/staff
+   engineer → Rails engineer → recruiter. Never contacts anyone; you verify and send manually.
 4. **Drafts** (`skills/message_draftsman.md`) — short personalized referral request
    per contact (60–100 words, low-pressure ask, resume offer).
 
@@ -88,12 +88,12 @@ including contacts and drafts, work through the skills in order:
    (seniority/Rails fit, stack overlap, location, comp, gaps capped at -30).
    Save all results as `jobs_evaluated.json`; insert every row into `jobs`
     with `INSERT OR IGNORE` (unique indexes reject dupes). Stamp every row with
-    the run's `session_id` (`date "+%F %H:%M"`). 75+ gets
-   `referral_research_status = "pending"`, below 75 `"not_qualified"`.
+    the run's `session_id` (`date "+%F %H:%M"`). Every recorded job gets
+   `referral_research_status = "pending"` (score does not skip contact research).
    Once all rows are in the DB, delete `jobs_raw.json` — it's transient
    scratch, and both it and `jobs.db` are gitignored so they never pile
    up in the repo.
-3. **Contacts** — for each 75+ job, find up to 3 people per
+3. **Contacts** — for every recorded job, find up to 3 people per
    `skills/contact_finder.md` (manager → senior/staff → Rails eng → recruiter).
    Verify current employment from public profiles; never invent URLs.
    Insert into `contacts` linked via `job_id`, status `"pending"`.

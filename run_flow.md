@@ -13,13 +13,14 @@ Workflow:
 2. JOB EVALUATION
 - Evaluate every discovered job using job_evaluator.md.
 - Apply the scoring and rejection rules defined in that skill.
-- Save/update qualified jobs in jobs.db as instructed.
-- Only continue to referral research for jobs that meet the required qualification threshold.
+- Save/update every evaluated job in jobs.db as instructed (not only high-scoring ones).
+- Score is for ranking only. Do not skip contact research because of score.
 
 3. CONTACT RESEARCH
-- For each job, use contact_finder.md.
-- Find up to 3 highly relevant potential referral contacts.
-- Prioritize quality over quantity.
+- For every job in jobs.db from this run (and any existing row still pending), use contact_finder.md.
+- Find and record up to 3 relevant potential referral contacts for each job.
+- Do not skip a job because it scored below 75 or is labeled POSSIBLE MATCH / LOW PRIORITY.
+- Prioritize quality over quantity when choosing people.
 - Do not contact anyone.
 - Do not send connection requests.
 

@@ -256,7 +256,7 @@ def main():
         if s == 0:
             skipped += 1
             continue
-        status = 'pending' if s >= 75 else 'not_qualified'
+        status = 'pending'
         cur.execute('''INSERT OR IGNORE INTO jobs (job_url, source, company, title, location, salary, description,
           score, recommendation, matching_reasons, potential_gaps, evaluated_at, referral_research_status, posted_at)
           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
@@ -289,7 +289,7 @@ def main():
         print('QUALIFIED (75+):')
         for q in qual: print(' -', q)
     else:
-        print('No new 75+ matches. Contact research needed only if pending rows exist.')
+        print('No new 75+ matches. Contact research still runs for every recorded job.')
 
 if __name__ == '__main__':
     main()

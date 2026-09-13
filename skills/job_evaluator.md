@@ -11,7 +11,7 @@ This skill receives structured job listings from the `job_discovery` skill and d
 * A score from 1–100
 * Why the job is a good or poor match
 * Potential skill gaps
-* Whether the job should be saved for further referral research
+* Whether the job should be recorded (rejected jobs are not saved; every recorded job proceeds to contact research)
 
 This skill must **not** apply for jobs or contact anyone.
 
@@ -193,25 +193,25 @@ Use the final score to classify the job:
 
 `HIGH PRIORITY`
 
-Excellent match. Strong candidate for referral research.
+Excellent match. Highest priority for outreach after contacts are found.
 
 ### 75–89
 
 `GOOD MATCH`
 
-Worth pursuing and researching for referrals.
+Worth pursuing. Still research referral contacts like every other recorded job.
 
 ### 60–74
 
 `POSSIBLE MATCH`
 
-Potentially useful, but should be reviewed carefully.
+Potentially useful, but should be reviewed carefully. Still research referral contacts.
 
 ### 1–59
 
 `LOW PRIORITY`
 
-Do not normally save for referral research unless explicitly requested.
+Low priority for outreach, but still record the job and still research referral contacts.
 
 ---
 
@@ -281,9 +281,9 @@ Set:
 referral_research_status = "pending"
 ```
 
-for newly qualified jobs (score >= 75). For jobs below 75, set
-`referral_research_status = "not_qualified"` but still record the row
-with its `score` so the full pipeline history is preserved.
+for **every newly recorded job**, regardless of score. Do not use
+`not_qualified` to skip contact research. Score and `recommendation`
+rank the jobs; contact research still runs for all of them.
 
 ## Deduplication (No Duplicate Jobs, Ever)
 
@@ -399,4 +399,5 @@ A new search should happen only when the user explicitly starts another run or a
 * Missing information is **not automatically a negative**.
 * Distinguish between a true skill gap and a technology that is merely listed as "nice to have."
 * The score is a prioritization tool, not a hiring prediction.
-* Only jobs scoring **75+** should normally proceed to the referral research stage.
+* Every recorded job proceeds to referral contact research. Do not skip
+  contact research based on score.

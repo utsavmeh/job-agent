@@ -4,9 +4,11 @@
 
 Identify the **2–3 most relevant people** at a company who could realistically help with a referral for a specific job.
 
-This skill receives a qualified job from the evaluation stage.
+This skill receives **every recorded job** from the evaluation stage, not only high-scoring ones.
 
 It must prioritize **relevance and referral potential**, not the number of contacts found.
+
+Do not skip a job because of `score`, `recommendation`, or a former `not_qualified` status. Research contacts for each job.
 
 It must not contact, message, connect with, or send requests to anyone.
 
@@ -19,6 +21,8 @@ Find up to **3 high-quality contacts per company/job**.
 Prefer fewer high-quality contacts over filling all three slots with weak candidates.
 
 If only one or two genuinely relevant people can be identified, return only those people.
+
+Still attempt research for every job. Do not leave a job unresearched because the score is below 75. If no public, non-invented people can be found after a real search, record that the job was researched and move on — never invent contacts to fill the quota.
 
 ---
 
@@ -287,6 +291,7 @@ Return up to 3 contacts per job.
 ## Important Rules
 
 * Maximum **3 contacts per job**.
+* Research every recorded job. Score does not gate this skill.
 * Quality over quantity.
 * Never invent profile URLs or employment information.
 * Never assume someone can provide a referral.
@@ -299,7 +304,7 @@ Return up to 3 contacts per job.
 
 # Database Output
 
-Record **ALL contacts** in `jobs.db`, table `contacts`.
+Record **ALL contacts** in `jobs.db`, table `contacts`. Create contact rows for every job where people were found.
 
 * Link each contact via `contacts.job_id` → `jobs.id`.
 * The job's match strength lives in the existing `jobs.score` column —
@@ -308,4 +313,6 @@ Record **ALL contacts** in `jobs.db`, table `contacts`.
   priority_rank, technical_background (JSON), referral_potential_reason,
   referral_status`.
 * Set `referral_status = "pending"` for newly found contacts.
+* After researching a job, set `jobs.referral_research_status = "completed"`
+  even if zero contacts could be found without inventing people.
 
